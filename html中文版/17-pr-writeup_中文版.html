@@ -1,0 +1,592 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PR #312 — 将通知投递移到队列</title>
+  <style>
+    :root {
+      --ivory:    #FAF9F5;
+      --slate:    #141413;
+      --clay:     #D97757;
+      --oat:      #E3DACC;
+      --olive:    #788C5D;
+      --gray-150: #F0EEE6;
+      --gray-300: #D1CFC5;
+      --gray-500: #87867F;
+      --gray-700: #3D3D3A;
+      --white:    #FFFFFF;
+
+      --serif: ui-serif, Georgia, 'Times New Roman', serif;
+      --sans:  system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+      --mono:  ui-monospace, 'SF Mono', Menlo, Monaco, monospace;
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: var(--sans);
+      background: var(--ivory);
+      color: var(--gray-700);
+      line-height: 1.55;
+      padding: 56px 32px 120px;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    .page { max-width: 1040px; margin: 0 auto; }
+
+    /* ---------- header ---------- */
+
+    header.page-head { margin-bottom: 44px; max-width: 820px; }
+    .eyebrow {
+      font-size: 12px;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--gray-500);
+      margin-bottom: 12px;
+    }
+    h1 {
+      font-family: var(--serif);
+      font-weight: 500;
+      font-size: 36px;
+      line-height: 1.15;
+      color: var(--slate);
+      margin-bottom: 10px;
+      letter-spacing: -0.01em;
+    }
+    .pr-meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 18px;
+      font-family: var(--mono);
+      font-size: 12.5px;
+      color: var(--gray-500);
+      margin-bottom: 18px;
+    }
+    .pr-meta .stat strong { color: var(--slate); font-weight: 600; }
+    .pr-meta .add { color: var(--olive); }
+    .pr-meta .del { color: var(--clay); }
+
+    .prompt-box {
+      background: var(--gray-150);
+      border: 1.5px solid var(--gray-300);
+      border-radius: 12px;
+      padding: 16px 20px;
+      font-size: 14.5px;
+      color: var(--gray-700);
+    }
+    .prompt-box .label {
+      font-family: var(--mono);
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--gray-500);
+      display: block;
+      margin-bottom: 6px;
+    }
+
+    /* ---------- layout ---------- */
+
+    .layout {
+      display: grid;
+      grid-template-columns: 1fr 240px;
+      gap: 48px;
+      align-items: start;
+    }
+    @media (max-width: 900px) { .layout { grid-template-columns: 1fr; } .toc { display: none; } }
+
+    section { margin-bottom: 56px; scroll-margin-top: 24px; }
+    h2 {
+      font-family: var(--serif);
+      font-weight: 500;
+      font-size: 25px;
+      color: var(--slate);
+      margin-bottom: 14px;
+      letter-spacing: -0.01em;
+    }
+    p.lede { font-size: 15.5px; max-width: 680px; margin-bottom: 12px; }
+    p + p.lede { margin-top: 12px; }
+
+    .toc {
+      position: sticky;
+      top: 32px;
+      border-left: 1.5px solid var(--gray-300);
+      padding-left: 18px;
+      font-size: 13px;
+    }
+    .toc .t-head {
+      font-family: var(--mono);
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--gray-500);
+      margin-bottom: 10px;
+    }
+    .toc a { display: block; color: var(--gray-700); text-decoration: none; padding: 4px 0; }
+    .toc a:hover { color: var(--clay); }
+    .toc .sub { padding-left: 12px; color: var(--gray-500); font-size: 12.5px; }
+
+    /* ---------- TL;DR ---------- */
+
+    .tldr {
+      background: var(--white);
+      border: 1.5px solid var(--gray-300);
+      border-left: 4px solid var(--clay);
+      border-radius: 12px;
+      padding: 20px 24px;
+      margin-bottom: 48px;
+      max-width: 760px;
+    }
+    .tldr .k {
+      font-family: var(--mono);
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--gray-500);
+      margin-bottom: 8px;
+    }
+    .tldr p { font-size: 15px; color: var(--slate); }
+
+    /* ---------- before/after ---------- */
+
+    .ba {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 24px;
+      margin: 22px 0 4px;
+    }
+    @media (max-width: 720px) { .ba { grid-template-columns: 1fr; } }
+    .ba .panel {
+      background: var(--white);
+      border: 1.5px solid var(--gray-300);
+      border-radius: 12px;
+      padding: 18px 20px;
+    }
+    .ba .panel.after { border-color: var(--olive); }
+    .ba .k {
+      font-family: var(--mono);
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--gray-500);
+      margin-bottom: 10px;
+    }
+    .ba .after .k { color: var(--olive); }
+    .ba ul { list-style: none; display: flex; flex-direction: column; gap: 8px; font-size: 13.5px; }
+    .ba li::before { content: '·'; color: var(--gray-500); margin-right: 8px; }
+    .ba .after li::before { color: var(--olive); }
+
+    /* ---------- file tour ---------- */
+
+    .file-tour { display: flex; flex-direction: column; gap: 22px; }
+    .file {
+      background: var(--white);
+      border: 1.5px solid var(--gray-300);
+      border-radius: 12px;
+      overflow: hidden;
+    }
+    .file summary {
+      padding: 14px 20px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      list-style: none;
+      background: var(--gray-150);
+      border-bottom: 1.5px solid var(--gray-300);
+    }
+    .file[open] summary { border-bottom-color: var(--gray-300); }
+    .file:not([open]) summary { border-bottom: none; }
+    .file summary::-webkit-details-marker { display: none; }
+    .file summary .chev {
+      width: 8px; height: 8px;
+      border-right: 2px solid var(--gray-500);
+      border-bottom: 2px solid var(--gray-500);
+      transform: rotate(-45deg);
+      transition: transform .15s ease;
+      flex-shrink: 0;
+    }
+    .file[open] summary .chev { transform: rotate(45deg); }
+    .file summary .path {
+      font-family: var(--mono);
+      font-size: 13px;
+      color: var(--slate);
+      flex: 1;
+    }
+    .file summary .badge {
+      font-family: var(--mono);
+      font-size: 10.5px;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      padding: 2px 8px;
+      border-radius: 6px;
+      font-weight: 600;
+    }
+    .badge.new { background: #E4E9DC; color: #4B5C39; }
+    .badge.mod { background: var(--oat); color: var(--slate); }
+    .badge.del { background: #F3D9CC; color: #8A3B1E; }
+    .file summary .stat { font-family: var(--mono); font-size: 12px; }
+    .file summary .stat .add { color: var(--olive); }
+    .file summary .stat .del { color: var(--clay); }
+    .file .file-body { padding: 18px 20px 22px; }
+    .file .why {
+      font-size: 14.5px;
+      margin-bottom: 14px;
+      max-width: 680px;
+    }
+    .file .why strong { color: var(--slate); }
+
+    /* ---------- code ---------- */
+
+    .code {
+      background: var(--slate);
+      border-radius: 10px;
+      padding: 16px 18px;
+      overflow-x: auto;
+    }
+    .code pre {
+      font-family: var(--mono);
+      font-size: 12.5px;
+      line-height: 1.65;
+      color: #E8E6DE;
+      white-space: pre;
+    }
+    .code .kw  { color: var(--clay); }
+    .code .str { color: var(--olive); }
+    .code .cm  { color: var(--gray-500); }
+    .code .fn  { color: #C9B98A; }
+    .code .add { background: rgba(120,140,93,.22); display: inline-block; width: 100%; }
+    .code .del { background: rgba(217,119,87,.18); display: inline-block; width: 100%; text-decoration: line-through; text-decoration-color: rgba(217,119,87,.6); }
+
+    /* ---------- review focus ---------- */
+
+    .focus { display: flex; flex-direction: column; gap: 14px; max-width: 760px; }
+    .focus .item {
+      background: var(--white);
+      border: 1.5px solid var(--gray-300);
+      border-radius: 10px;
+      padding: 16px 20px;
+      display: flex;
+      gap: 16px;
+    }
+    .focus .n {
+      font-family: var(--mono);
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--white);
+      background: var(--clay);
+      width: 26px; height: 26px;
+      border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0;
+      margin-top: 2px;
+    }
+    .focus .t { font-weight: 600; color: var(--slate); font-size: 15px; margin-bottom: 2px; }
+    .focus .d { font-size: 13.5px; color: var(--gray-500); }
+    .focus .d code { font-size: 12.5px; }
+
+    /* ---------- test plan ---------- */
+
+    .tests { display: flex; flex-direction: column; gap: 10px; max-width: 760px; }
+    .test {
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+      background: var(--white);
+      border: 1.5px solid var(--gray-300);
+      border-radius: 10px;
+      padding: 13px 18px;
+      font-size: 14px;
+    }
+    .test .check {
+      width: 18px; height: 18px;
+      border-radius: 5px;
+      flex-shrink: 0;
+      margin-top: 2px;
+      border: 1.5px solid var(--gray-300);
+    }
+    .test.done .check {
+      background: var(--olive);
+      border-color: var(--olive);
+      position: relative;
+    }
+    .test.done .check::after {
+      content: '';
+      position: absolute;
+      left: 5px; top: 2px;
+      width: 5px; height: 9px;
+      border-right: 2px solid var(--white);
+      border-bottom: 2px solid var(--white);
+      transform: rotate(40deg);
+    }
+    .test .label { color: var(--slate); }
+    .test .note { color: var(--gray-500); font-size: 13px; margin-top: 2px; }
+
+    /* ---------- rollout ---------- */
+
+    .rollout { display: flex; gap: 0; max-width: 780px; }
+    @media (max-width: 720px) { .rollout { flex-direction: column; } }
+    .rollout .step {
+      flex: 1;
+      background: var(--white);
+      border: 1.5px solid var(--gray-300);
+      padding: 16px 18px;
+      position: relative;
+    }
+    .rollout .step:first-child { border-radius: 12px 0 0 12px; }
+    .rollout .step:last-child { border-radius: 0 12px 12px 0; }
+    .rollout .step + .step { border-left: none; }
+    @media (max-width: 720px) {
+      .rollout .step, .rollout .step:first-child, .rollout .step:last-child { border-radius: 12px; }
+      .rollout .step + .step { border-left: 1.5px solid var(--gray-300); margin-top: 10px; }
+    }
+    .rollout .step .pct {
+      font-family: var(--mono);
+      font-size: 22px;
+      font-weight: 600;
+      color: var(--clay);
+      margin-bottom: 6px;
+    }
+    .rollout .step .d { font-size: 13px; color: var(--gray-500); }
+    .rollout .step .when { font-family: var(--mono); font-size: 11px; color: var(--gray-500); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 8px; }
+  </style>
+</head>
+<body>
+  <div class="page">
+
+    <header class="page-head">
+      <div class="eyebrow">拉取请求 · Acme</div>
+      <h1>#312 — 将通知投递移到队列</h1>
+      <div class="pr-meta">
+        <span class="stat"><strong>9</strong> 文件</span>
+        <span class="stat"><span class="add">+418</span> / <span class="del">−190</span></span>
+        <span class="stat">分支 <strong>notify-queue</strong> → <strong>main</strong></span>
+        <span class="stat">作者 <strong>@priya</strong></span>
+      </div>
+      <div class="prompt-box">
+        <span class="label">提示词</span>
+        为我的评审者撰写 PR #312 说明。解释动机，逐文件带他们理解改动，并说明每个改动的 <em>why</em> ，展示前后行为，并明确告诉他们评审重点。他们已经六个月没碰通知代码了。
+      </div>
+    </header>
+
+    <div class="layout">
+      <main>
+
+        <div class="tldr">
+          <div class="k">摘要</div>
+          <p>通知发送原本内联发生在请求路径中。在负载下，它们会给 mutation 延迟增加 200–800&nbsp;ms，并在 SMTP 池耗尽时静默丢弃邮件。这个 PR 将投递移到现有 <code>pg-boss</code> 队列上，让 API 立即返回，失败发送则按退避重试。</p>
+        </div>
+
+        <!-- ======================= WHY ======================= -->
+
+        <section id="why">
+          <h2>原因</h2>
+          <p class="lede">上季度我们在评论中添加 @提及时，每次提及都会在保存评论的同一个事务里触发最多三次发送（站内、邮件、Slack）。上线时这没问题。但现在一次任务更新可能扇出到四十个关注者，这就不行了。</p>
+
+          <div class="ba">
+            <div class="panel">
+              <div class="k">之前</div>
+              <ul>
+                <li>发送在 mutation handler 中内联运行</li>
+                <li>SMTP 超时 = <em>comment</em></li>
+                <li>没有重试 — 丢掉的邮件就没了</li>
+                <li>p99 on <code>comments.create</code>: <strong>1.4&nbsp;s</strong></li>
+              </ul>
+            </div>
+            <div class="panel after">
+              <div class="k">之后</div>
+              <ul>
+                <li>handler 为每个收件人入队一个任务后返回</li>
+                <li>worker 使用指数退避重试 3 次</li>
+                <li>重试耗尽后进入死信表供检查</li>
+                <li>p99 on <code>comments.create</code>: <strong>180&nbsp;ms</strong> （预发）</li>
+              </ul>
+            </div>
+          </div>
+        </section>
+
+        <!-- ======================= FILE TOUR ======================= -->
+
+        <section id="tour">
+          <h2>逐文件说明</h2>
+          <p class="lede">按阅读顺序排列，而不是字母顺序。从 worker 开始 — 它是新东西 — 然后看入队调用点，再看管线接线。</p>
+
+          <div class="file-tour">
+
+            <details class="file" open>
+              <summary>
+                <span class="chev"></span>
+                <span class="path">packages/notify/src/worker.ts</span>
+                <span class="badge new">new</span>
+                <span class="stat"><span class="add">+126</span></span>
+              </summary>
+              <div class="file-body">
+                <p class="why"><strong>这个 PR 的核心。</strong> A <code>pg-boss</code> 订阅者，拉取 <code>notify.deliver</code> 任务，解析用户的渠道偏好，并调用正确的适配器。重试按渠道配置 — 邮件尝试三次，Slack 尝试一次，因为我们这边调用它的 API 已经是幂等的。</p>
+                <div class="code"><pre>boss.<span class="fn">work</span>(<span class="str">'notify.deliver'</span>, { batchSize: 20 }, <span class="kw">async</span> (jobs) =&gt; {
+  <span class="kw">for</span> (<span class="kw">const</span> job <span class="kw">of</span> jobs) {
+    <span class="kw">const</span> { userId, event, channel } = job.data;
+    <span class="kw">const</span> prefs = <span class="kw">await</span> <span class="fn">getPrefs</span>(userId);
+    <span class="kw">if</span> (!prefs[channel]) <span class="kw">return</span>;          <span class="cm">// 用户静音了该渠道</span>
+
+    <span class="kw">try</span> {
+      <span class="kw">await</span> adapters[channel].<span class="fn">send</span>(userId, event);
+    } <span class="kw">catch</span> (err) {
+      <span class="kw">if</span> (job.retryCount &gt;= MAX_RETRY[channel]) {
+        <span class="kw">await</span> <span class="fn">deadLetter</span>(job, err);         <span class="cm">// 不要抛出 — ack 并停放</span>
+        <span class="kw">return</span>;
+      }
+      <span class="kw">throw</span> err;                            <span class="cm">// pg-boss 重新调度</span>
+    }
+  }
+});</pre></div>
+              </div>
+            </details>
+
+            <details class="file" open>
+              <summary>
+                <span class="chev"></span>
+                <span class="path">packages/api/src/routers/comments.ts</span>
+                <span class="badge mod">mod</span>
+                <span class="stat"><span class="add">+14</span> <span class="del">−62</span></span>
+              </summary>
+              <div class="file-body">
+                <p class="why"><strong>收益出现的地方。</strong> 这个 mutation 过去会直接调用 <code>sendEmail</code>, <code>sendSlack</code>, and <code>createInApp</code> 。现在它插入评论、计算收件人并入队。try/catch 汤没了。</p>
+                <div class="code"><pre>  <span class="kw">const</span> comment = <span class="kw">await</span> db.comments.<span class="fn">insert</span>(input);
+  <span class="kw">const</span> recipients = <span class="kw">await</span> <span class="fn">resolveWatchers</span>(input.taskId, input.mentions);
+
+<span class="del">  <span class="kw">for</span> (<span class="kw">const</span> r <span class="kw">of</span> recipients) {</span>
+<span class="del">    <span class="kw">await</span> <span class="fn">sendEmail</span>(r, comment);       <span class="cm">// 阻塞响应</span></span>
+<span class="del">    <span class="kw">await</span> <span class="fn">sendSlack</span>(r, comment);</span>
+<span class="del">  }</span>
+<span class="add">  <span class="kw">await</span> boss.<span class="fn">insert</span>(recipients.flatMap((r) =&gt;</span>
+<span class="add">    CHANNELS.map((ch) =&gt; ({</span>
+<span class="add">      name: <span class="str">'notify.deliver'</span>,</span>
+<span class="add">      data: { userId: r.id, channel: ch, event: toEvent(comment) },</span>
+<span class="add">      singletonKey: <span class="str">`${comment.id}:${r.id}:${ch}`</span>,  <span class="cm">// idempotent</span></span>
+<span class="add">    }))));</span>
+  <span class="kw">return</span> comment;</pre></div>
+              </div>
+            </details>
+
+            <details class="file">
+              <summary>
+                <span class="chev"></span>
+                <span class="path">packages/db/migrations/0051_dead_letter.sql</span>
+                <span class="badge new">new</span>
+                <span class="stat"><span class="add">+22</span></span>
+              </summary>
+              <div class="file-body">
+                <p class="why">用于保存重试耗尽任务的表。刻意 <em>not</em> 自动清理 — 在信任新路径前，我们希望每周查看这些记录。包含完整任务 payload 和最后的错误字符串。</p>
+              </div>
+            </details>
+
+            <details class="file">
+              <summary>
+                <span class="chev"></span>
+                <span class="path">packages/notify/src/adapters/{email,slack,inapp}.ts</span>
+                <span class="badge mod">mod</span>
+                <span class="stat"><span class="add">+88</span> <span class="del">−74</span></span>
+              </summary>
+              <div class="file-body">
+                <p class="why">主要是迁移。每个适配器现在实现共享 <code>Adapter</code> 接口，并抛出带类型的 <code>RetryableError</code> or <code>PermanentError</code> ，让 worker 知道是否应该重试。邮件适配器也移除了内部重试循环 — 现在队列负责重试，双重重试正是我们四月出现重复邮件的原因。</p>
+              </div>
+            </details>
+
+            <details class="file">
+              <summary>
+                <span class="chev"></span>
+                <span class="path">apps/worker/src/index.ts, infra/fly.toml</span>
+                <span class="badge mod">mod</span>
+                <span class="stat"><span class="add">+31</span> <span class="del">−4</span></span>
+              </summary>
+              <div class="file-body">
+                <p class="why">在现有 worker 进程中注册新订阅者，并把并发从 5 提升到 20。不新增部署单元。</p>
+              </div>
+            </details>
+
+            <details class="file">
+              <summary>
+                <span class="chev"></span>
+                <span class="path">packages/notify/src/__tests__/worker.test.ts</span>
+                <span class="badge new">new</span>
+                <span class="stat"><span class="add">+137</span></span>
+              </summary>
+              <div class="file-body">
+                <p class="why">覆盖重试边界、死信路径、渠道静音和 singleton key 去重。对测试数据库使用真实 pg-boss — 上季度 mock 队列测试通过但生产排序出错，我们吃过亏。</p>
+              </div>
+            </details>
+
+          </div>
+        </section>
+
+        <!-- ======================= FOCUS ======================= -->
+
+        <section id="focus">
+          <h2>评审重点</h2>
+          <div class="focus">
+            <div class="item">
+              <div class="n">1</div>
+              <div>
+                <div class="t">重试 / 死信边界</div>
+                <div class="d"><code>worker.ts:31–44</code>. I catch, check <code>retryCount</code>, ，然后停放或重新抛出。如果这段逻辑错了，我们要么无限重试，要么丢消息 — 这正是本 PR 要修复的两种失败模式。</div>
+              </div>
+            </div>
+            <div class="item">
+              <div class="n">2</div>
+              <div>
+                <div class="t">singleton key</div>
+                <div class="d"><code>comments.ts:28</code>. <code>${commentId}:${userId}:${channel}</code> 应该能让 API handler 重试时的重新入队保持幂等。请确认它不会跨任务冲突。</div>
+              </div>
+            </div>
+            <div class="item">
+              <div class="n">3</div>
+              <div>
+                <div class="t">我刻意没有做的事</div>
+                <div class="d">没有做按用户摘要批处理、投递回执或优先级通道。这些都能干净地叠在这个基础上；一起打包会让评审不可控。</div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- ======================= TEST PLAN ======================= -->
+
+        <section id="tests">
+          <h2>测试计划</h2>
+          <div class="tests">
+            <div class="test done"><span class="check"></span><div><div class="label">单元：重试 → 死信路径、渠道静音、singleton 去重</div><div class="note">packages/notify — 14 个用例，测试库中使用真实 pg-boss</div></div></div>
+            <div class="test done"><span class="check"></span><div><div class="label">集成：创建带 3 个关注者的评论，断言 9 个任务入队并被消费</div></div></div>
+            <div class="test done"><span class="check"></span><div><div class="label">预发压测：comments.create 500 rps 持续 10 分钟，p99 = 180 ms</div><div class="note">之前是 1.4 s — 仪表盘已在 PR 描述中链接</div></div></div>
+            <div class="test"><span class="check"></span><div><div class="label">手动：在突发中杀掉 SMTP，确认任务进入死信且没有 500</div><div class="note">将在 10% 放量期间执行</div></div></div>
+          </div>
+        </section>
+
+        <!-- ======================= ROLLOUT ======================= -->
+
+        <section id="rollout">
+          <h2>发布计划</h2>
+          <p class="lede">Behind <code>notify_queue_v2</code>之后。旧的内联路径会在代码库中保留一个版本，已停用但休眠，以防需要切回。</p>
+          <div class="rollout">
+            <div class="step"><div class="when">Day 0</div><div class="pct">internal</div><div class="d">仅 Acme 团队。观察死信表 + worker 错误率。</div></div>
+            <div class="step"><div class="when">Day 2</div><div class="pct">10%</div><div class="d">随机样本。如果死信率超过发送量的 0.5% 则告警。</div></div>
+            <div class="step"><div class="when">Day 4</div><div class="pct">100%</div><div class="d">全量放量，下周在后续 PR 中删除内联路径。</div></div>
+          </div>
+        </section>
+
+      </main>
+
+      <nav class="toc">
+        <div class="t-head">本 PR 内容</div>
+        <a href="#why">原因</a>
+        <a href="#tour">逐文件说明</a>
+        <a href="#tour" class="sub">worker.ts</a>
+        <a href="#tour" class="sub">comments.ts</a>
+        <a href="#tour" class="sub">adapters</a>
+        <a href="#focus">Where to focus</a>
+        <a href="#tests">测试计划</a>
+        <a href="#rollout">发布计划</a>
+      </nav>
+    </div>
+
+  </div>
+</body>
+</html>

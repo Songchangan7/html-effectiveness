@@ -1,0 +1,699 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>实现计划 — 任务卡片评论线程</title>
+  <style>
+    :root {
+      --ivory:    #FAF9F5;
+      --slate:    #141413;
+      --clay:     #D97757;
+      --oat:      #E3DACC;
+      --olive:    #788C5D;
+      --gray-150: #F0EEE6;
+      --gray-300: #D1CFC5;
+      --gray-500: #87867F;
+      --gray-700: #3D3D3A;
+      --white:    #FFFFFF;
+
+      --serif: ui-serif, Georgia, 'Times New Roman', serif;
+      --sans:  system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+      --mono:  ui-monospace, 'SF Mono', Menlo, Monaco, monospace;
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: var(--sans);
+      background: var(--ivory);
+      color: var(--gray-700);
+      line-height: 1.55;
+      padding: 56px 32px 120px;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    .page { max-width: 1120px; margin: 0 auto; }
+
+    /* ---------- header ---------- */
+
+    header.page-head { margin-bottom: 48px; max-width: 820px; }
+
+    .eyebrow {
+      font-size: 12px;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--gray-500);
+      margin-bottom: 12px;
+    }
+
+    h1 {
+      font-family: var(--serif);
+      font-weight: 500;
+      font-size: 38px;
+      line-height: 1.15;
+      color: var(--slate);
+      margin-bottom: 18px;
+      letter-spacing: -0.01em;
+    }
+
+    .prompt-box {
+      background: var(--gray-150);
+      border: 1.5px solid var(--gray-300);
+      border-radius: 12px;
+      padding: 16px 20px;
+      font-size: 14.5px;
+      color: var(--gray-700);
+    }
+    .prompt-box .label {
+      font-family: var(--mono);
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--gray-500);
+      display: block;
+      margin-bottom: 6px;
+    }
+
+    /* ---------- section chrome ---------- */
+
+    section { margin-bottom: 64px; }
+
+    .sec-head {
+      display: flex;
+      align-items: baseline;
+      gap: 14px;
+      margin-bottom: 8px;
+    }
+    .sec-head .num {
+      font-family: var(--mono);
+      font-size: 12px;
+      background: var(--oat);
+      color: var(--slate);
+      padding: 3px 9px;
+      border-radius: 8px;
+    }
+    .sec-head h2 {
+      font-family: var(--serif);
+      font-weight: 500;
+      font-size: 26px;
+      color: var(--slate);
+      letter-spacing: -0.01em;
+    }
+    .sec-intro {
+      font-size: 14.5px;
+      color: var(--gray-500);
+      max-width: 720px;
+      margin-bottom: 28px;
+    }
+
+    /* ---------- summary strip ---------- */
+
+    .summary {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 16px;
+      margin-bottom: 64px;
+    }
+    @media (max-width: 900px) { .summary { grid-template-columns: repeat(2, 1fr); } }
+    .summary .cell {
+      background: var(--white);
+      border: 1.5px solid var(--gray-300);
+      border-radius: 12px;
+      padding: 18px 20px;
+    }
+    .summary .k {
+      font-family: var(--mono);
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--gray-500);
+      margin-bottom: 6px;
+    }
+    .summary .v {
+      font-size: 17px;
+      color: var(--slate);
+      font-weight: 600;
+    }
+    .summary .v.accent { color: var(--clay); }
+
+    /* ---------- milestone timeline ---------- */
+
+    .milestones { display: flex; flex-direction: column; gap: 0; }
+    .milestone {
+      display: grid;
+      grid-template-columns: 120px 28px 1fr;
+      gap: 0 18px;
+      position: relative;
+    }
+    .milestone .when {
+      text-align: right;
+      font-family: var(--mono);
+      font-size: 12px;
+      color: var(--gray-500);
+      padding-top: 4px;
+    }
+    .milestone .dot-col {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+    .milestone .dot {
+      width: 14px; height: 14px;
+      border-radius: 50%;
+      background: var(--white);
+      border: 3px solid var(--clay);
+      margin-top: 4px;
+      flex-shrink: 0;
+    }
+    .milestone .dot.done { background: var(--olive); border-color: var(--olive); }
+    .milestone .line {
+      width: 2px;
+      flex: 1;
+      background: var(--gray-300);
+      margin: 4px 0;
+    }
+    .milestone:last-child .line { display: none; }
+    .milestone .body { padding-bottom: 36px; }
+    .milestone .body h3 {
+      font-family: var(--serif);
+      font-weight: 500;
+      font-size: 19px;
+      color: var(--slate);
+      margin-bottom: 4px;
+    }
+    .milestone .body p { font-size: 14px; color: var(--gray-500); margin-bottom: 10px; max-width: 620px; }
+    .milestone .tags { display: flex; gap: 8px; flex-wrap: wrap; }
+    .milestone .tag {
+      font-family: var(--mono);
+      font-size: 11.5px;
+      background: var(--gray-150);
+      border: 1px solid var(--gray-300);
+      border-radius: 6px;
+      padding: 3px 8px;
+      color: var(--gray-700);
+    }
+
+    /* ---------- data flow diagram ---------- */
+
+    .diagram {
+      background: var(--white);
+      border: 1.5px solid var(--gray-300);
+      border-radius: 12px;
+      padding: 28px;
+      overflow-x: auto;
+    }
+    .diagram svg { display: block; min-width: 760px; }
+    .diagram text { font-family: var(--mono); }
+    .caption { font-size: 13px; color: var(--gray-500); margin-top: 12px; }
+
+    /* ---------- mockups ---------- */
+
+    .mocks {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 28px;
+    }
+    @media (max-width: 900px) { .mocks { grid-template-columns: 1fr; } }
+    .mock {
+      background: var(--white);
+      border: 1.5px solid var(--gray-300);
+      border-radius: 12px;
+      overflow: hidden;
+    }
+    .mock .mock-label {
+      padding: 12px 18px;
+      border-bottom: 1.5px solid var(--gray-300);
+      font-family: var(--mono);
+      font-size: 11.5px;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--gray-500);
+      background: var(--gray-150);
+    }
+    .mock .mock-body { padding: 22px; }
+
+    /* task card mock */
+    .card-mock {
+      border: 1.5px solid var(--gray-300);
+      border-radius: 10px;
+      padding: 16px;
+      background: var(--ivory);
+    }
+    .card-mock .cm-title { font-weight: 600; font-size: 15px; color: var(--slate); margin-bottom: 4px; }
+    .card-mock .cm-meta { font-size: 12px; color: var(--gray-500); margin-bottom: 14px; }
+    .card-mock .cm-divider { border-top: 1px dashed var(--gray-300); margin: 14px 0; }
+    .thread { display: flex; flex-direction: column; gap: 12px; }
+    .comment { display: flex; gap: 10px; }
+    .comment .avatar {
+      width: 26px; height: 26px; border-radius: 50%;
+      background: var(--oat);
+      flex-shrink: 0;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 11px; font-weight: 600; color: var(--slate);
+    }
+    .comment .avatar.alt { background: var(--olive); color: var(--white); }
+    .comment .bubble { flex: 1; }
+    .comment .author { font-size: 12px; font-weight: 600; color: var(--slate); }
+    .comment .author .time { font-weight: 400; color: var(--gray-500); margin-left: 6px; }
+    .comment .text { font-size: 13px; color: var(--gray-700); margin-top: 2px; }
+    .comment .reply-link { font-size: 11.5px; color: var(--clay); margin-top: 4px; cursor: default; }
+    .comment.nested { margin-left: 36px; }
+    .composer {
+      display: flex; gap: 10px; align-items: center;
+      margin-top: 6px;
+    }
+    .composer .field {
+      flex: 1;
+      border: 1.5px solid var(--gray-300);
+      border-radius: 8px;
+      padding: 8px 12px;
+      font-size: 13px;
+      color: var(--gray-500);
+      background: var(--white);
+    }
+    .composer .send {
+      background: var(--clay);
+      color: var(--white);
+      border-radius: 8px;
+      padding: 8px 14px;
+      font-size: 13px;
+      font-weight: 600;
+    }
+
+    /* sidebar digest mock */
+    .digest { display: flex; flex-direction: column; gap: 10px; }
+    .digest .row {
+      display: flex; gap: 10px; align-items: flex-start;
+      padding: 10px 12px;
+      background: var(--ivory);
+      border: 1.5px solid var(--gray-300);
+      border-radius: 8px;
+    }
+    .digest .row.unread { border-left: 3px solid var(--clay); }
+    .digest .mini-av {
+      width: 22px; height: 22px; border-radius: 50%;
+      background: var(--oat);
+      flex-shrink: 0;
+      font-size: 10px; font-weight: 600; color: var(--slate);
+      display: flex; align-items: center; justify-content: center;
+    }
+    .digest .txt { font-size: 12.5px; color: var(--gray-700); line-height: 1.45; }
+    .digest .txt strong { color: var(--slate); }
+    .digest .txt .on { color: var(--gray-500); }
+
+    /* ---------- code panel ---------- */
+
+    .code-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 28px; }
+    @media (max-width: 980px) { .code-grid { grid-template-columns: 1fr; } }
+    .code-block { display: flex; flex-direction: column; gap: 10px; }
+    .code-block .file-label {
+      font-family: var(--mono);
+      font-size: 12px;
+      color: var(--gray-500);
+    }
+    .code {
+      background: var(--slate);
+      border-radius: 12px;
+      padding: 18px 20px;
+      overflow-x: auto;
+      flex: 1;
+    }
+    .code pre {
+      font-family: var(--mono);
+      font-size: 12.5px;
+      line-height: 1.65;
+      color: #E8E6DE;
+      white-space: pre;
+    }
+    .code .kw  { color: var(--clay); }
+    .code .str { color: var(--olive); }
+    .code .cm  { color: var(--gray-500); }
+    .code .fn  { color: #C9B98A; }
+
+    /* ---------- risk table ---------- */
+
+    .risks {
+      border: 1.5px solid var(--gray-300);
+      border-radius: 12px;
+      overflow: hidden;
+      background: var(--white);
+    }
+    .risks .row {
+      display: grid;
+      grid-template-columns: 1.6fr 90px 1.6fr;
+      gap: 0;
+    }
+    @media (max-width: 780px) { .risks .row { grid-template-columns: 1fr; } }
+    .risks .row + .row { border-top: 1.5px solid var(--gray-300); }
+    .risks .cell { padding: 14px 18px; font-size: 13.5px; }
+    .risks .cell + .cell { border-left: 1.5px solid var(--gray-300); }
+    @media (max-width: 780px) { .risks .cell + .cell { border-left: none; border-top: 1px dashed var(--gray-300); } }
+    .risks .head { background: var(--gray-150); font-weight: 600; color: var(--slate); font-size: 12px; text-transform: uppercase; letter-spacing: 0.04em; }
+    .sev {
+      display: inline-block;
+      font-family: var(--mono);
+      font-size: 11px;
+      padding: 2px 8px;
+      border-radius: 6px;
+      font-weight: 600;
+    }
+    .sev.high { background: #F3D9CC; color: #8A3B1E; }
+    .sev.med  { background: var(--oat); color: var(--slate); }
+    .sev.low  { background: #E4E9DC; color: #4B5C39; }
+
+    /* ---------- open questions ---------- */
+
+    .open-q { display: flex; flex-direction: column; gap: 14px; max-width: 820px; }
+    .q {
+      background: var(--white);
+      border: 1.5px solid var(--gray-300);
+      border-left: 4px solid var(--clay);
+      border-radius: 10px;
+      padding: 16px 20px;
+    }
+    .q .qt { font-weight: 600; font-size: 15px; color: var(--slate); margin-bottom: 4px; }
+    .q .qd { font-size: 13.5px; color: var(--gray-500); }
+    .q .owner {
+      font-family: var(--mono);
+      font-size: 11.5px;
+      color: var(--gray-500);
+      margin-top: 8px;
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+
+    <header class="page-head">
+      <div class="eyebrow">实现计划 · Acme Web 客户端</div>
+      <h1>任务卡片上的评论线程</h1>
+      <div class="prompt-box">
+        <span class="label">提示词</span>
+        为任务卡片添加线程评论制定一份完整实现计划。包含线框稿、从客户端到持久化的数据流、需要编写的关键代码以及风险表。让它在手机上也易于浏览 — 我会原样交给实现者。
+      </div>
+    </header>
+
+    <!-- ============================================================= -->
+
+    <div class="summary">
+      <div class="cell"><div class="k">工作量</div><div class="v accent">约 2 周</div></div>
+      <div class="cell"><div class="k">涉及表面</div><div class="v">3 个包</div></div>
+      <div class="cell"><div class="k">新表</div><div class="v">2</div></div>
+      <div class="cell"><div class="k">功能开关</div><div class="v">task_comments_v1</div></div>
+    </div>
+
+    <!-- ============================================================= -->
+
+    <section>
+      <div class="sec-head"><span class="num">01</span><h2>里程碑</h2></div>
+      <p class="sec-intro">分四个切片交付，每个切片都可独立评审，并都放在功能开关后。直到第&nbsp;4 个切片前，用户都看不到任何变化。</p>
+
+      <div class="milestones">
+        <div class="milestone">
+          <div class="when">第&nbsp;1 周 · 周一–周二</div>
+          <div class="dot-col"><span class="dot done"></span><span class="line"></span></div>
+          <div class="body">
+            <h3>Schema 与 API 契约</h3>
+            <p>新增 <code>comments</code> and <code>comment_reads</code> 表、迁移和 tRPC router stub。没有 UI。先评审契约，再落其他内容。</p>
+            <div class="tags"><span class="tag">packages/db</span><span class="tag">packages/api</span><span class="tag">migration 0042</span></div>
+          </div>
+        </div>
+
+        <div class="milestone">
+          <div class="when">第&nbsp;1 周 · 周三–周五</div>
+          <div class="dot-col"><span class="dot"></span><span class="line"></span></div>
+          <div class="body">
+            <h3>线程组件与编辑器</h3>
+            <p>Static <code>&lt;CommentThread&gt;</code> 从 fixture 渲染。提交时乐观插入，失败时回滚，只支持一层嵌套。</p>
+            <div class="tags"><span class="tag">apps/web</span><span class="tag">storybook</span></div>
+          </div>
+        </div>
+
+        <div class="milestone">
+          <div class="when">第&nbsp;2 周 · 周一–周三</div>
+          <div class="dot-col"><span class="dot"></span><span class="line"></span></div>
+          <div class="body">
+            <h3>实时扇出与未读状态</h3>
+            <p>让打开的卡片订阅其评论频道。跟踪每用户阅读游标，让侧边栏无需第二次查询即可显示未读数。</p>
+            <div class="tags"><span class="tag">packages/realtime</span><span class="tag">apps/web</span></div>
+          </div>
+        </div>
+
+        <div class="milestone">
+          <div class="when">第&nbsp;2 周 · 周四–周五</div>
+          <div class="dot-col"><span class="dot"></span><span class="line"></span></div>
+          <div class="body">
+            <h3>通知、开关放量、文档</h3>
+            <p>提及检测 → 通知行，邮件摘要兜底，将 <code>task_comments_v1</code> 放量到内部，然后三天内从 10% → 100%。</p>
+            <div class="tags"><span class="tag">packages/notify</span><span class="tag">growthbook</span></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============================================================= -->
+
+    <section>
+      <div class="sec-head"><span class="num">02</span><h2>数据流</h2></div>
+      <p class="sec-intro">左侧是乐观写入路径，右侧是扇出路径。阅读游标更新是 fire-and-forget — 我们绝不因为它阻塞线程渲染。</p>
+
+      <div class="diagram">
+        <svg viewBox="0 0 860 340" xmlns="http://www.w3.org/2000/svg">
+          <defs>
+            <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+              <path d="M0,0 L10,5 L0,10 z" fill="#87867F"/>
+            </marker>
+            <marker id="arrowClay" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+              <path d="M0,0 L10,5 L0,10 z" fill="#D97757"/>
+            </marker>
+          </defs>
+
+          <!-- boxes -->
+          <g font-size="12" fill="#141413">
+            <rect x="20"  y="20"  width="180" height="54" rx="10" fill="#FFFFFF" stroke="#D1CFC5" stroke-width="1.5"/>
+            <text x="110" y="43" text-anchor="middle" font-weight="600">&lt;CommentComposer&gt;</text>
+            <text x="110" y="60" text-anchor="middle" fill="#87867F" font-size="10.5">apps/web</text>
+
+            <rect x="20"  y="150" width="180" height="54" rx="10" fill="#FFFFFF" stroke="#D1CFC5" stroke-width="1.5"/>
+            <text x="110" y="173" text-anchor="middle" font-weight="600">React Query cache</text>
+            <text x="110" y="190" text-anchor="middle" fill="#87867F" font-size="10.5">optimistic insert</text>
+
+            <rect x="340" y="150" width="180" height="54" rx="10" fill="#FFFFFF" stroke="#D1CFC5" stroke-width="1.5"/>
+            <text x="430" y="173" text-anchor="middle" font-weight="600">comments.create</text>
+            <text x="430" y="190" text-anchor="middle" fill="#87867F" font-size="10.5">tRPC · packages/api</text>
+
+            <rect x="340" y="266" width="180" height="54" rx="10" fill="#141413" stroke="#141413"/>
+            <text x="430" y="289" text-anchor="middle" font-weight="600" fill="#FAF9F5">comments table</text>
+            <text x="430" y="306" text-anchor="middle" fill="#C9B98A" font-size="10.5">postgres · packages/db</text>
+
+            <rect x="660" y="150" width="180" height="54" rx="10" fill="#FFFFFF" stroke="#D1CFC5" stroke-width="1.5"/>
+            <text x="750" y="173" text-anchor="middle" font-weight="600">realtime channel</text>
+            <text x="750" y="190" text-anchor="middle" fill="#87867F" font-size="10.5">task:{id}:comments</text>
+
+            <rect x="660" y="20"  width="180" height="54" rx="10" fill="#FFFFFF" stroke="#D1CFC5" stroke-width="1.5"/>
+            <text x="750" y="43" text-anchor="middle" font-weight="600">其他查看者</text>
+            <text x="750" y="60" text-anchor="middle" fill="#87867F" font-size="10.5">已订阅卡片</text>
+
+            <rect x="660" y="266" width="180" height="54" rx="10" fill="#FFFFFF" stroke="#D1CFC5" stroke-width="1.5"/>
+            <text x="750" y="289" text-anchor="middle" font-weight="600">通知 worker</text>
+            <text x="750" y="306" text-anchor="middle" fill="#87867F" font-size="10.5">@mentions → queue</text>
+          </g>
+
+          <!-- arrows -->
+          <g stroke="#87867F" stroke-width="1.5" fill="none">
+            <path d="M110 74 L110 150" marker-end="url(#arrow)"/>
+            <path d="M200 177 L340 177" marker-end="url(#arrow)"/>
+            <path d="M430 204 L430 266" marker-end="url(#arrow)"/>
+            <path d="M520 293 L660 293" marker-end="url(#arrow)"/>
+          </g>
+          <g stroke="#D97757" stroke-width="1.5" fill="none" stroke-dasharray="5 4">
+            <path d="M520 177 L660 177" marker-end="url(#arrowClay)"/>
+            <path d="M750 150 L750 74" marker-end="url(#arrowClay)"/>
+            <path d="M660 162 C 540 120, 280 120, 205 162" marker-end="url(#arrowClay)"/>
+          </g>
+
+          <!-- edge labels -->
+          <g font-size="10.5" fill="#87867F">
+            <text x="118" y="118">提交（id=temp）</text>
+            <text x="240" y="170">变更</text>
+            <text x="438" y="240">INSERT + 阅读游标</text>
+            <text x="548" y="286">入队</text>
+            <text x="548" y="172" fill="#D97757">广播行</text>
+            <text x="758" y="118" fill="#D97757">实时追加</text>
+            <text x="360" y="112" fill="#D97757">协调临时 id → 真实 id</text>
+          </g>
+        </svg>
+        <p class="caption">实线 = 请求/响应路径。陶土色虚线 = 实时扇出。编辑器永远不会等待虚线路径。</p>
+      </div>
+    </section>
+
+    <!-- ============================================================= -->
+
+    <section>
+      <div class="sec-head"><span class="num">03</span><h2>线框稿</h2></div>
+      <p class="sec-intro">不是最终像素稿 — 只要足够让我和评审者对嵌套深度、编辑器位置、侧边栏摘要样式达成一致。</p>
+
+      <div class="mocks">
+        <div class="mock">
+          <div class="mock-label">A · 打开的任务卡片内的线程</div>
+          <div class="mock-body">
+            <div class="card-mock">
+              <div class="cm-title">交付入门空状态重写</div>
+              <div class="cm-meta">BIR-1142 · 分配给 Priya · Due Fri</div>
+              <div class="cm-divider"></div>
+              <div class="thread">
+                <div class="comment">
+                  <div class="avatar">JM</div>
+                  <div class="bubble">
+                    <div class="author">Jonah M. <span class="time">2 小时前</span></div>
+                    <div class="text">当工作区已经有一个项目时，插画是否应该切换？两次显示“从这里开始”的图感觉有点奇怪。</div>
+                    <div class="reply-link">回复</div>
+                  </div>
+                </div>
+                <div class="comment nested">
+                  <div class="avatar alt">PS</div>
+                  <div class="bubble">
+                    <div class="author">Priya S. <span class="time">40 分钟前</span></div>
+                    <div class="text">好发现 — 我会用 <code>projects.count &gt; 0</code> 做门控，并回退到极简变体。</div>
+                  </div>
+                </div>
+                <div class="composer">
+                  <div class="field">添加评论…</div>
+                  <div class="send">发布</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="mock">
+          <div class="mock-label">B · 侧边栏未读摘要</div>
+          <div class="mock-body">
+            <div class="digest">
+              <div class="row unread">
+                <div class="mini-av">JM</div>
+                <div class="txt"><strong>Jonah</strong> 评论了 <span class="on">on BIR-1142</span> — “插画是否应该切换…”</div>
+              </div>
+              <div class="row unread">
+                <div class="mini-av">AK</div>
+                <div class="txt"><strong>Aiko</strong> 提到了你 <span class="on">on BIR-1098</span> — “@priya 你能确认这里的文案吗？”</div>
+              </div>
+              <div class="row">
+                <div class="mini-av">RW</div>
+                <div class="txt"><strong>Rowan</strong> 回复了 <span class="on">on BIR-0971</span> — “已合并，感谢快速处理。”</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============================================================= -->
+
+    <section>
+      <div class="sec-head"><span class="num">04</span><h2>关键代码</h2></div>
+      <p class="sec-intro">最容易做错的两块：迁移（软删除、阅读游标）和乐观 mutation（临时 id 协调）。</p>
+
+      <div class="code-grid">
+        <div class="code-block">
+          <div class="file-label">packages/db/migrations/0042_comments.sql</div>
+          <div class="code"><pre><span class="kw">create table</span> <span class="fn">comments</span> (
+  id          uuid <span class="kw">primary key default</span> gen_random_uuid(),
+  task_id     uuid <span class="kw">not null references</span> tasks(id),
+  parent_id   uuid <span class="kw">references</span> comments(id),   <span class="cm">-- 只允许一层，</span>
+                                                <span class="cm">-- 由 API 强制</span>
+  author_id   uuid <span class="kw">not null references</span> users(id),
+  body        text <span class="kw">not null</span>,
+  created_at  timestamptz <span class="kw">not null default</span> now(),
+  deleted_at  timestamptz                       <span class="cm">-- soft delete</span>
+);
+
+<span class="kw">create table</span> <span class="fn">comment_reads</span> (
+  task_id    uuid <span class="kw">not null references</span> tasks(id),
+  user_id    uuid <span class="kw">not null references</span> users(id),
+  read_up_to timestamptz <span class="kw">not null</span>,
+  <span class="kw">primary key</span> (task_id, user_id)
+);
+
+<span class="kw">create index</span> <span class="fn">comments_task_created</span>
+  <span class="kw">on</span> comments (task_id, created_at);</pre></div>
+        </div>
+
+        <div class="code-block">
+          <div class="file-label">apps/web/hooks/useAddComment.ts</div>
+          <div class="code"><pre><span class="kw">export function</span> <span class="fn">useAddComment</span>(taskId: string) {
+  <span class="kw">const</span> qc = useQueryClient();
+  <span class="kw">return</span> trpc.comments.create.<span class="fn">useMutation</span>({
+    <span class="fn">onMutate</span>: <span class="kw">async</span> (input) =&gt; {
+      <span class="kw">const</span> temp = { ...input, id: <span class="str">`temp-${nanoid()}`</span>,
+                     createdAt: <span class="kw">new</span> Date(), pending: <span class="kw">true</span> };
+      qc.<span class="fn">setQueryData</span>(key(taskId), (prev) =&gt;
+        [...(prev ?? []), temp]);
+      <span class="kw">return</span> { tempId: temp.id };
+    },
+    <span class="fn">onSuccess</span>: (row, _v, ctx) =&gt; {
+      <span class="cm">// 协调临时 id → 真实 id，避免</span>
+      <span class="cm">// 实时追加造成重复</span>
+      qc.<span class="fn">setQueryData</span>(key(taskId), (prev) =&gt;
+        prev.map((c) =&gt; c.id === ctx.tempId ? row : c));
+    },
+    <span class="fn">onError</span>: (_e, _v, ctx) =&gt; {
+      qc.<span class="fn">setQueryData</span>(key(taskId), (prev) =&gt;
+        prev.filter((c) =&gt; c.id !== ctx.tempId));
+    },
+  });
+}</pre></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============================================================= -->
+
+    <section>
+      <div class="sec-head"><span class="num">05</span><h2>风险与缓解</h2></div>
+      <div class="risks">
+        <div class="row">
+          <div class="cell head">风险</div>
+          <div class="cell head">严重性</div>
+          <div class="cell head">缓解措施</div>
+        </div>
+        <div class="row">
+          <div class="cell">实时重复：socket 追加与 HTTP 响应及临时 id 协调发生竞态。</div>
+          <div class="cell"><span class="sev high">HIGH</span></div>
+          <div class="cell">在缓存更新器中按服务端分配的 <code>id</code> 去重；socket payload 携带真实 id，协调时过滤临时行。</div>
+        </div>
+        <div class="row">
+          <div class="cell">用户在另一台设备上阅读线程时，未读数会变旧。</div>
+          <div class="cell"><span class="sev med">MED</span></div>
+          <div class="cell">在同一频道广播 <code>comment_reads</code> upsert；客户端把自己的游标视为 max(local, remote)。</div>
+        </div>
+        <div class="row">
+          <div class="cell">粘贴 markdown 时提及检测误报（<code>@media</code>, <code>@2x</code>).</div>
+          <div class="cell"><span class="sev low">LOW</span></div>
+          <div class="cell">只在写入时针对工作区成员解析提及，并存储解析后的用户 id — 读取时绝不重新解析。</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============================================================= -->
+
+    <section>
+      <div class="sec-head"><span class="num">06</span><h2>开放问题</h2></div>
+      <div class="open-q">
+        <div class="q">
+          <div class="qt">我们允许编辑，还是只允许删除并重发？</div>
+          <div class="qd">编辑需要 <code>edited_at</code> 列和“已编辑”提示。删除并重发更简单，但会丢失回复锚点。v1 倾向只支持删除。</div>
+          <div class="owner">与设计一起决定，第 2 个切片前</div>
+        </div>
+        <div class="q">
+          <div class="qt">用户关闭应用时的邮件摘要频率</div>
+          <div class="qd">每次提及立即发送会很吵。建议：按 15 分钟窗口批处理，每个任务合并成一封邮件，并遵守现有设置表中的免打扰时间。</div>
+          <div class="owner">与平台一起决定，第 4 个切片前</div>
+        </div>
+      </div>
+    </section>
+
+  </div>
+</body>
+</html>

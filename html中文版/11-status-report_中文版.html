@@ -1,0 +1,522 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Acme — 工程状态 — 第 11 周</title>
+<style>
+  :root {
+    --ivory: #FAF9F5;
+    --slate: #141413;
+    --clay: #D97757;
+    --oat: #E3DACC;
+    --olive: #788C5D;
+    --rust: #B04A3F;
+    --gray-100: #F0EEE6;
+    --gray-300: #D1CFC5;
+    --gray-500: #87867F;
+    --gray-700: #3D3D3A;
+    --white: #FFFFFF;
+
+    --serif: ui-serif, Georgia, serif;
+    --sans: system-ui, -apple-system, sans-serif;
+    --mono: ui-monospace, 'SF Mono', Menlo, monospace;
+
+    --radius-panel: 12px;
+    --radius-row: 8px;
+    --border: 1.5px solid var(--gray-300);
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    padding: 56px 24px 120px;
+    background: var(--ivory);
+    color: var(--slate);
+    font-family: var(--sans);
+    font-size: 15px;
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .page {
+    max-width: 860px;
+    margin: 0 auto;
+  }
+
+  /* ---------- Header ---------- */
+  header {
+    margin-bottom: 40px;
+  }
+  .header-top {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 12px;
+    margin-bottom: 8px;
+  }
+  h1 {
+    font-family: var(--serif);
+    font-weight: 500;
+    font-size: 38px;
+    letter-spacing: -0.01em;
+    margin: 0;
+  }
+  .auto-pill {
+    font-family: var(--mono);
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--gray-500);
+    background: var(--gray-100);
+    border: var(--border);
+    border-radius: 999px;
+    padding: 5px 11px;
+    white-space: nowrap;
+  }
+  .date-range {
+    color: var(--gray-500);
+    font-size: 14px;
+  }
+  .date-range .repo {
+    font-family: var(--mono);
+    font-size: 13px;
+    color: var(--gray-700);
+  }
+
+  /* ---------- Sections ---------- */
+  section {
+    margin-bottom: 52px;
+  }
+  h2 {
+    font-family: var(--serif);
+    font-weight: 500;
+    font-size: 24px;
+    letter-spacing: -0.01em;
+    margin: 0 0 6px;
+  }
+  hr.rule {
+    border: none;
+    border-top: 1px solid var(--gray-300);
+    margin: 0 0 22px;
+  }
+
+  /* ---------- Summary band ---------- */
+  .summary-band {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 14px;
+  }
+  @media (max-width: 720px) {
+    .summary-band { grid-template-columns: repeat(2, 1fr); }
+  }
+  .stat-card {
+    background: var(--white);
+    border: var(--border);
+    border-radius: var(--radius-panel);
+    padding: 20px 22px 18px;
+  }
+  .stat-card.warn {
+    border-left: 4px solid var(--clay);
+    padding-left: 19px;
+  }
+  .stat-num {
+    font-family: var(--serif);
+    font-size: 44px;
+    font-weight: 500;
+    line-height: 1;
+    color: var(--slate);
+    margin-bottom: 8px;
+  }
+  .stat-label {
+    font-family: var(--sans);
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--gray-500);
+  }
+  .stat-delta {
+    font-family: var(--mono);
+    font-size: 11px;
+    margin-top: 6px;
+  }
+  .stat-delta.up { color: var(--olive); }
+  .stat-delta.flat { color: var(--gray-500); }
+
+  /* ---------- Highlights ---------- */
+  .highlights {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+  }
+  .highlights li {
+    position: relative;
+    padding: 0 0 14px 26px;
+    font-size: 15px;
+    color: var(--gray-700);
+  }
+  .highlights li::before {
+    content: "";
+    position: absolute;
+    left: 6px;
+    top: 8px;
+    width: 7px;
+    height: 7px;
+    border-radius: 2px;
+    background: var(--clay);
+  }
+  .highlights li strong {
+    color: var(--slate);
+    font-weight: 600;
+  }
+
+  /* ---------- Shipped table ---------- */
+  table.shipped {
+    width: 100%;
+    border-collapse: separate;
+    border-spacing: 0;
+    background: var(--white);
+    border: var(--border);
+    border-radius: var(--radius-panel);
+    overflow: hidden;
+  }
+  table.shipped thead th {
+    text-align: left;
+    font-family: var(--sans);
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--gray-500);
+    background: var(--gray-100);
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--gray-300);
+  }
+  table.shipped tbody td {
+    padding: 13px 16px;
+    border-bottom: 1px solid var(--gray-100);
+    font-size: 14px;
+    vertical-align: middle;
+  }
+  table.shipped tbody tr:last-child td {
+    border-bottom: none;
+  }
+  table.shipped tbody tr:hover {
+    background: var(--ivory);
+  }
+  .pr-link {
+    font-family: var(--mono);
+    font-size: 13px;
+    color: var(--clay);
+    text-decoration: none;
+    border-bottom: 1px dotted transparent;
+  }
+  .pr-link:hover {
+    border-bottom-color: var(--clay);
+  }
+  .author {
+    color: var(--gray-700);
+    font-size: 13px;
+  }
+  .risk {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    font-size: 12px;
+    color: var(--gray-500);
+  }
+  .risk-dot {
+    width: 9px;
+    height: 9px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+  .risk-dot.low { background: var(--olive); }
+  .risk-dot.med { background: var(--clay); }
+  .risk-dot.high { background: var(--rust); }
+
+  /* ---------- Velocity chart ---------- */
+  .chart-panel {
+    background: var(--white);
+    border: var(--border);
+    border-radius: var(--radius-panel);
+    padding: 24px 28px 18px;
+  }
+  .chart-panel svg {
+    display: block;
+    width: 100%;
+    height: auto;
+  }
+  .chart-caption {
+    font-size: 12px;
+    color: var(--gray-500);
+    margin-top: 12px;
+  }
+
+  /* ---------- Carryover ---------- */
+  .carryover {
+    background: var(--oat);
+    border-radius: var(--radius-panel);
+    padding: 20px 22px;
+  }
+  .carry-item {
+    display: flex;
+    align-items: baseline;
+    gap: 14px;
+    padding: 8px 0;
+  }
+  .carry-item + .carry-item {
+    border-top: 1px solid rgba(20, 20, 19, 0.08);
+  }
+  .carry-tag {
+    font-family: var(--mono);
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--gray-700);
+    background: var(--ivory);
+    border-radius: 4px;
+    padding: 3px 7px;
+    flex-shrink: 0;
+  }
+  .carry-body {
+    font-size: 14px;
+    color: var(--gray-700);
+  }
+  .carry-body .who {
+    color: var(--gray-500);
+    font-size: 12px;
+  }
+
+  /* ---------- Footer ---------- */
+  footer {
+    margin-top: 64px;
+    padding-top: 20px;
+    border-top: 1px solid var(--gray-300);
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--gray-500);
+  }
+</style>
+</head>
+<body>
+  <div class="page">
+
+    <header>
+      <div class="header-top">
+        <h1>工程状态 &mdash; 第 11 周</h1>
+        <span class="auto-pill">自动生成</span>
+      </div>
+      <div class="date-range">
+        2025 年 3 月 10 日 &ndash; 3 月 16 日 &nbsp;&middot;&nbsp;
+        <span class="repo">acme/app @ main</span>
+      </div>
+    </header>
+
+    <!-- Summary band -->
+    <section>
+      <div class="summary-band">
+        <div class="stat-card">
+          <div class="stat-num">14</div>
+          <div class="stat-label">合并的 PR</div>
+          <div class="stat-delta up">较第 10 周 +3</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-num">6</div>
+          <div class="stat-label">部署</div>
+          <div class="stat-delta flat">&plusmn;0</div>
+        </div>
+        <div class="stat-card warn">
+          <div class="stat-num">1</div>
+          <div class="stat-label">事故</div>
+          <div class="stat-delta flat">SEV-2 &middot; 47 分钟</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-num">3</div>
+          <div class="stat-label">修复的不稳定测试</div>
+          <div class="stat-delta up">套件现为 99.1%</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Highlights -->
+    <section>
+      <h2>亮点</h2>
+      <hr class="rule">
+      <ul class="highlights">
+        <li>
+          <strong>批量任务编辑已发布到 100%。</strong> 多选工具栏周一通过开关上线，周四放量到所有工作区，错误率没有回退。
+        </li>
+        <li>
+          <strong>同步 API p95 下降 38%。</strong> 把逐任务认证检查替换为限定范围的批量查找后，在预发压测中将热路径从 410ms 降至 255ms。
+        </li>
+        <li>
+          <strong>周三发生一次 SEV-2</strong> &mdash; 一次配置发布把错误的连接池限制推到了同步 worker。47 分钟内缓解；完整复盘链接在下方。
+        </li>
+      </ul>
+    </section>
+
+    <!-- Shipped -->
+    <section>
+      <h2>已交付</h2>
+      <hr class="rule">
+      <table class="shipped">
+        <thead>
+          <tr>
+            <th style="width: 90px;">PR</th>
+            <th>标题</th>
+            <th style="width: 140px;">作者</th>
+            <th style="width: 100px;">风险</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><a class="pr-link" href="#">#4871</a></td>
+            <td>批量编辑工具栏：选择模型 + 键盘快捷键</td>
+            <td class="author">Mira Okafor</td>
+            <td><span class="risk"><span class="risk-dot med"></span>Med</span></td>
+          </tr>
+          <tr>
+            <td><a class="pr-link" href="#">#4874</a></td>
+            <td>Batch auth lookup for <code>/v2/sync</code> hot path</td>
+            <td class="author">Devon Park</td>
+            <td><span class="risk"><span class="risk-dot med"></span>Med</span></td>
+          </tr>
+          <tr>
+            <td><a class="pr-link" href="#">#4878</a></td>
+            <td>修复附件上传器重试循环中的竞态</td>
+            <td class="author">Sam Reyes</td>
+            <td><span class="risk"><span class="risk-dot low"></span>Low</span></td>
+          </tr>
+          <tr>
+            <td><a class="pr-link" href="#">#4879</a></td>
+            <td>将提醒调度器迁移到幂等任务 key</td>
+            <td class="author">Priya Anand</td>
+            <td><span class="risk"><span class="risk-dot high"></span>High</span></td>
+          </tr>
+          <tr>
+            <td><a class="pr-link" href="#">#4882</a></td>
+            <td>看板视图：默认折叠空泳道</td>
+            <td class="author">Mira Okafor</td>
+            <td><span class="risk"><span class="risk-dot low"></span>Low</span></td>
+          </tr>
+          <tr>
+            <td><a class="pr-link" href="#">#4885</a></td>
+            <td>隔离 3 个不稳定 webhook 集成测试</td>
+            <td class="author">Jules Tan</td>
+            <td><span class="risk"><span class="risk-dot low"></span>Low</span></td>
+          </tr>
+          <tr>
+            <td><a class="pr-link" href="#">#4888</a></td>
+            <td>连接池限制可按 worker 层级配置</td>
+            <td class="author">Devon Park</td>
+            <td><span class="risk"><span class="risk-dot med"></span>Med</span></td>
+          </tr>
+          <tr>
+            <td><a class="pr-link" href="#">#4891</a></td>
+            <td>设置和账单面板的深色模式整理</td>
+            <td class="author">Noor Halabi</td>
+            <td><span class="risk"><span class="risk-dot low"></span>Low</span></td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+
+    <!-- Velocity -->
+    <section>
+      <h2>速度</h2>
+      <hr class="rule">
+      <div class="chart-panel">
+        <svg viewBox="0 0 640 180" role="img" aria-label="PRs merged per day">
+          <!-- gridlines -->
+          <line x1="48" y1="20"  x2="620" y2="20"  stroke="#F0EEE6" stroke-width="1"/>
+          <line x1="48" y1="60"  x2="620" y2="60"  stroke="#F0EEE6" stroke-width="1"/>
+          <line x1="48" y1="100" x2="620" y2="100" stroke="#F0EEE6" stroke-width="1"/>
+          <line x1="48" y1="140" x2="620" y2="140" stroke="#D1CFC5" stroke-width="1.5"/>
+
+          <!-- y-axis labels -->
+          <text x="40" y="144" text-anchor="end" font-family="system-ui" font-size="11" fill="#87867F">0</text>
+          <text x="40" y="104" text-anchor="end" font-family="system-ui" font-size="11" fill="#87867F">1</text>
+          <text x="40" y="64"  text-anchor="end" font-family="system-ui" font-size="11" fill="#87867F">2</text>
+          <text x="40" y="24"  text-anchor="end" font-family="system-ui" font-size="11" fill="#87867F">3</text>
+
+          <!-- bars: 7 days, values 2,3,1,4,2,1,1 (sum 14)
+               baseline y=140, unit=40px, bar width=56, gap=24, start x=64 -->
+          <!-- Mon: 2 -->
+          <rect x="64"  y="60"  width="56" height="80"  rx="6" fill="#E3DACC"/>
+          <!-- Tue: 3 -->
+          <rect x="144" y="20"  width="56" height="120" rx="6" fill="#E3DACC"/>
+          <!-- Wed: 1 -->
+          <rect x="224" y="100" width="56" height="40"  rx="6" fill="#E3DACC"/>
+          <!-- Thu: 4 (peak) -->
+          <rect x="304" y="0"   width="56" height="140" rx="6" fill="#D97757"/>
+          <!-- Fri: 2 -->
+          <rect x="384" y="60"  width="56" height="80"  rx="6" fill="#E3DACC"/>
+          <!-- Sat: 1 -->
+          <rect x="464" y="100" width="56" height="40"  rx="6" fill="#E3DACC"/>
+          <!-- Sun: 1 -->
+          <rect x="544" y="100" width="56" height="40"  rx="6" fill="#E3DACC"/>
+
+          <!-- value labels -->
+          <text x="92"  y="54"  text-anchor="middle" font-family="system-ui" font-size="11" fill="#87867F">2</text>
+          <text x="172" y="14"  text-anchor="middle" font-family="system-ui" font-size="11" fill="#87867F">3</text>
+          <text x="252" y="94"  text-anchor="middle" font-family="system-ui" font-size="11" fill="#87867F">1</text>
+          <text x="332" y="14"  text-anchor="middle" font-family="system-ui" font-size="11" fill="#3D3D3A" font-weight="600">4</text>
+          <text x="412" y="54"  text-anchor="middle" font-family="system-ui" font-size="11" fill="#87867F">2</text>
+          <text x="492" y="94"  text-anchor="middle" font-family="system-ui" font-size="11" fill="#87867F">1</text>
+          <text x="572" y="94"  text-anchor="middle" font-family="system-ui" font-size="11" fill="#87867F">1</text>
+
+          <!-- x-axis labels -->
+          <text x="92"  y="158" text-anchor="middle" font-family="system-ui" font-size="11" fill="#87867F">Mon</text>
+          <text x="172" y="158" text-anchor="middle" font-family="system-ui" font-size="11" fill="#87867F">Tue</text>
+          <text x="252" y="158" text-anchor="middle" font-family="system-ui" font-size="11" fill="#87867F">Wed</text>
+          <text x="332" y="158" text-anchor="middle" font-family="system-ui" font-size="11" fill="#87867F">Thu</text>
+          <text x="412" y="158" text-anchor="middle" font-family="system-ui" font-size="11" fill="#87867F">Fri</text>
+          <text x="492" y="158" text-anchor="middle" font-family="system-ui" font-size="11" fill="#87867F">Sat</text>
+          <text x="572" y="158" text-anchor="middle" font-family="system-ui" font-size="11" fill="#87867F">Sun</text>
+        </svg>
+        <div class="chart-caption">
+          每日合并 PR 数。周四峰值来自批量编辑功能列车（4 个 PR 一起落地）。
+        </div>
+      </div>
+    </section>
+
+    <!-- Carryover -->
+    <section>
+      <h2>结转事项</h2>
+      <hr class="rule">
+      <div class="carryover">
+        <div class="carry-item">
+          <span class="carry-tag">评审中</span>
+          <div class="carry-body">
+            工作区导出 CSV &mdash; 等待分页评审。
+            <span class="who">&middot; Sam Reyes</span>
+          </div>
+        </div>
+        <div class="carry-item">
+          <span class="carry-tag">阻塞</span>
+          <div class="carry-body">
+            SSO 组映射 &mdash; 被 IT 的预发 IdP 凭据阻塞。
+            <span class="who">&middot; Priya Anand</span>
+          </div>
+        </div>
+        <div class="carry-item">
+          <span class="carry-tag">延期</span>
+          <div class="carry-body">
+            移动推送可靠性仪表盘 &mdash; 因事故跟进而降级优先级。
+            <span class="who">&middot; Devon Park</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <footer>
+      来源：git log main..HEAD &middot; CI 仪表盘 &middot; 部署日志
+      &nbsp;&mdash;&nbsp; 生成于 2025 年 3 月 16 日 18:02
+    </footer>
+
+  </div>
+</body>
+</html>

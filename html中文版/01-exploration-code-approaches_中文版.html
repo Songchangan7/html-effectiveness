@@ -1,0 +1,448 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>防抖搜索 — 三种方案</title>
+  <style>
+    :root {
+      --ivory:    #FAF9F5;
+      --slate:    #141413;
+      --clay:     #D97757;
+      --oat:      #E3DACC;
+      --olive:    #788C5D;
+      --gray-150: #F0EEE6;
+      --gray-300: #D1CFC5;
+      --gray-500: #87867F;
+      --gray-700: #3D3D3A;
+      --white:    #FFFFFF;
+
+      --serif: ui-serif, Georgia, 'Times New Roman', serif;
+      --sans:  system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+      --mono:  ui-monospace, 'SF Mono', Menlo, Monaco, monospace;
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: var(--sans);
+      background: var(--ivory);
+      color: var(--gray-700);
+      line-height: 1.55;
+      padding: 56px 32px 96px;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    .page {
+      max-width: 1360px;
+      margin: 0 auto;
+    }
+
+    /* ---------- header ---------- */
+
+    header.page-head {
+      margin-bottom: 48px;
+      max-width: 760px;
+    }
+
+    .eyebrow {
+      font-size: 12px;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--gray-500);
+      margin-bottom: 12px;
+    }
+
+    h1 {
+      font-family: var(--serif);
+      font-weight: 500;
+      font-size: 38px;
+      line-height: 1.15;
+      color: var(--slate);
+      margin-bottom: 18px;
+      letter-spacing: -0.01em;
+    }
+
+    .prompt-box {
+      background: var(--gray-150);
+      border: 1.5px solid var(--gray-300);
+      border-radius: 12px;
+      padding: 16px 20px;
+      font-size: 14.5px;
+      color: var(--gray-700);
+    }
+
+    .prompt-box .label {
+      font-family: var(--mono);
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--gray-500);
+      display: block;
+      margin-bottom: 6px;
+    }
+
+    /* ---------- approach grid ---------- */
+
+    .approaches {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 28px;
+      margin-bottom: 56px;
+    }
+
+    @media (max-width: 1100px) {
+      .approaches { grid-template-columns: 1fr; }
+    }
+
+    .approach {
+      background: var(--white);
+      border: 1.5px solid var(--gray-300);
+      border-radius: 12px;
+      padding: 24px;
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+
+    .approach-head h2 {
+      font-family: var(--serif);
+      font-weight: 500;
+      font-size: 21px;
+      color: var(--slate);
+      margin-bottom: 6px;
+    }
+
+    .approach-head .num {
+      display: inline-block;
+      font-family: var(--mono);
+      font-size: 12px;
+      background: var(--oat);
+      color: var(--slate);
+      padding: 2px 8px;
+      border-radius: 8px;
+      margin-right: 8px;
+      vertical-align: 3px;
+    }
+
+    .approach-head p {
+      font-size: 14px;
+      color: var(--gray-500);
+    }
+
+    /* ---------- code panel ---------- */
+
+    .code {
+      background: var(--slate);
+      border-radius: 12px;
+      padding: 18px 20px;
+      overflow-x: auto;
+    }
+
+    .code pre {
+      font-family: var(--mono);
+      font-size: 12.5px;
+      line-height: 1.65;
+      color: #E8E6DE;
+      white-space: pre;
+    }
+
+    .code .kw  { color: var(--clay); }     /* keywords */
+    .code .str { color: var(--olive); }    /* strings  */
+    .code .cm  { color: var(--gray-500); } /* comments */
+    .code .fn  { color: #C9B98A; }         /* identifiers, subtle warm */
+
+    /* ---------- tradeoffs table ---------- */
+
+    .tradeoffs {
+      border: 1.5px solid var(--gray-300);
+      border-radius: 8px;
+      overflow: hidden;
+      font-size: 13px;
+    }
+
+    .tradeoffs .row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+    }
+
+    .tradeoffs .row + .row {
+      border-top: 1.5px solid var(--gray-300);
+    }
+
+    .tradeoffs .cell {
+      padding: 10px 14px;
+    }
+
+    .tradeoffs .cell:first-child {
+      border-right: 1.5px solid var(--gray-300);
+    }
+
+    .tradeoffs .head {
+      background: var(--gray-150);
+      font-weight: 600;
+      color: var(--slate);
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+
+    .tradeoffs .pro::before,
+    .tradeoffs .con::before {
+      content: '';
+      display: inline-block;
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      margin-right: 8px;
+      vertical-align: 2px;
+    }
+    .tradeoffs .pro::before { background: var(--olive); }
+    .tradeoffs .con::before { background: var(--clay); }
+
+    /* ---------- chip footer ---------- */
+
+    .chips {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .chip {
+      font-family: var(--mono);
+      font-size: 11.5px;
+      background: var(--gray-150);
+      border: 1.5px solid var(--gray-300);
+      color: var(--gray-700);
+      padding: 5px 10px;
+      border-radius: 8px;
+      white-space: nowrap;
+    }
+
+    .chip strong { color: var(--slate); font-weight: 600; }
+
+    /* ---------- recommendation ---------- */
+
+    .reco {
+      border-left: 4px solid var(--clay);
+      background: var(--white);
+      border-radius: 0 12px 12px 0;
+      padding: 24px 28px;
+      max-width: 860px;
+    }
+
+    .reco h2 {
+      font-family: var(--serif);
+      font-weight: 500;
+      font-size: 22px;
+      color: var(--slate);
+      margin-bottom: 10px;
+    }
+
+    .reco p {
+      font-size: 15px;
+      margin-bottom: 8px;
+    }
+
+    .reco code {
+      font-family: var(--mono);
+      font-size: 0.92em;
+      background: var(--gray-150);
+      padding: 1px 6px;
+      border-radius: 4px;
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+
+    <header class="page-head">
+      <div class="eyebrow">探索 · Acme Web 客户端</div>
+      <h1>实现防抖搜索的三种方式</h1>
+      <div class="prompt-box">
+        <span class="label">提示词</span>
+        请展示在我们的 React 代码库中为任务筛选输入框实现防抖搜索的三种不同方式，并说明每种方案的取舍。
+      </div>
+    </header>
+
+    <!-- ============================================================= -->
+
+    <section class="approaches">
+
+      <!-- ---------- Approach 1 ---------- -->
+      <article class="approach">
+        <header class="approach-head">
+          <h2><span class="num">01</span>内联 useEffect + setTimeout</h2>
+          <p>防抖逻辑直接放在拥有该输入框的组件内部。</p>
+        </header>
+
+        <div class="code"><pre><span class="kw">export function</span> <span class="fn">TaskSearch</span>() {
+  <span class="kw">const</span> [draft, setDraft] = <span class="fn">useState</span>(<span class="str">''</span>);
+  <span class="kw">const</span> [query, setQuery] = <span class="fn">useState</span>(<span class="str">''</span>);
+
+  <span class="fn">useEffect</span>(() <span class="kw">=&gt;</span> {
+    <span class="kw">const</span> id = <span class="fn">setTimeout</span>(() <span class="kw">=&gt;</span> setQuery(draft), <span class="str">300</span>);
+    <span class="kw">return</span> () <span class="kw">=&gt;</span> <span class="fn">clearTimeout</span>(id);
+  }, [draft]);
+
+  <span class="kw">const</span> { data } = <span class="fn">useTasks</span>({ search: query });
+
+  <span class="kw">return</span> (
+    &lt;<span class="fn">input</span>
+      value={draft}
+      onChange={(e) <span class="kw">=&gt;</span> setDraft(e.target.value)}
+      placeholder=<span class="str">"Filter tasks…"</span>
+    /&gt;
+  );
+}</pre></div>
+
+        <div class="tradeoffs">
+          <div class="row head">
+            <div class="cell">优点</div>
+            <div class="cell">缺点</div>
+          </div>
+          <div class="row">
+            <div class="cell pro">无需学习新的抽象</div>
+            <div class="cell con">每个搜索位置都会重复这段逻辑</div>
+          </div>
+          <div class="row">
+            <div class="cell pro">方便在开发者工具中逐步调试</div>
+            <div class="cell con">一个概念值却需要两份状态</div>
+          </div>
+          <div class="row">
+            <div class="cell pro">不增加依赖，也不改变包体</div>
+            <div class="cell con">延迟常量埋在组件主体里</div>
+          </div>
+        </div>
+
+        <div class="chips">
+          <span class="chip">包体影响： <strong>+0 kb</strong></span>
+          <span class="chip">可测试性： <strong>中</strong></span>
+          <span class="chip">复用性： <strong>低</strong></span>
+          <span class="chip">SSR 安全： <strong>是</strong></span>
+        </div>
+      </article>
+
+      <!-- ---------- Approach 2 ---------- -->
+      <article class="approach">
+        <header class="approach-head">
+          <h2><span class="num">02</span>自定义 useDebounce Hook</h2>
+          <p>把计时器提取到共享 Hook 中，放在 <code style="font-family:var(--mono)">src/hooks/</code>.</p>
+        </header>
+
+        <div class="code"><pre><span class="cm">// src/hooks/useDebounce.ts</span>
+<span class="kw">export function</span> <span class="fn">useDebounce</span>&lt;T&gt;(value: T, ms = <span class="str">300</span>): T {
+  <span class="kw">const</span> [debounced, setDebounced] = <span class="fn">useState</span>(value);
+  <span class="fn">useEffect</span>(() <span class="kw">=&gt;</span> {
+    <span class="kw">const</span> id = <span class="fn">setTimeout</span>(() <span class="kw">=&gt;</span> setDebounced(value), ms);
+    <span class="kw">return</span> () <span class="kw">=&gt;</span> <span class="fn">clearTimeout</span>(id);
+  }, [value, ms]);
+  <span class="kw">return</span> debounced;
+}
+
+<span class="cm">// TaskSearch.tsx</span>
+<span class="kw">const</span> [draft, setDraft] = <span class="fn">useState</span>(<span class="str">''</span>);
+<span class="kw">const</span> query = <span class="fn">useDebounce</span>(draft, <span class="str">300</span>);
+<span class="kw">const</span> { data } = <span class="fn">useTasks</span>({ search: query });</pre></div>
+
+        <div class="tradeoffs">
+          <div class="row head">
+            <div class="cell">优点</div>
+            <div class="cell">缺点</div>
+          </div>
+          <div class="row">
+            <div class="cell pro">筛选器、命令栏、看板搜索都能复用同一个 import</div>
+            <div class="cell con">多一个需要维护和记录的文件</div>
+          </div>
+          <div class="row">
+            <div class="cell pro">用 fake timer 做单元测试非常简单</div>
+            <div class="cell con">Generic <code style="font-family:var(--mono)">T</code> 会稍微弱化意图表达</div>
+          </div>
+          <div class="row">
+            <div class="cell pro">延迟是可见且可调的参数</div>
+            <div class="cell con">每次按键仍会重新渲染</div>
+          </div>
+        </div>
+
+        <div class="chips">
+          <span class="chip">包体影响： <strong>+0.2 kb</strong></span>
+          <span class="chip">可测试性： <strong>高</strong></span>
+          <span class="chip">复用性： <strong>高</strong></span>
+          <span class="chip">SSR 安全： <strong>是</strong></span>
+        </div>
+      </article>
+
+      <!-- ---------- Approach 3 ---------- -->
+      <article class="approach">
+        <header class="approach-head">
+          <h2><span class="num">03</span>轻量外部库</h2>
+          <p>采用 <code style="font-family:var(--mono)">use-debounce</code> 同时处理值和回调。</p>
+        </header>
+
+        <div class="code"><pre><span class="kw">import</span> { useDebouncedCallback }
+  <span class="kw">from</span> <span class="str">'use-debounce'</span>;
+
+<span class="kw">export function</span> <span class="fn">TaskSearch</span>() {
+  <span class="kw">const</span> [query, setQuery] = <span class="fn">useState</span>(<span class="str">''</span>);
+
+  <span class="kw">const</span> onChange = <span class="fn">useDebouncedCallback</span>(
+    (next: <span class="kw">string</span>) <span class="kw">=&gt;</span> setQuery(next),
+    <span class="str">300</span>,
+    { leading: <span class="kw">false</span>, maxWait: <span class="str">1000</span> },
+  );
+
+  <span class="kw">const</span> { data } = <span class="fn">useTasks</span>({ search: query });
+
+  <span class="kw">return</span> (
+    &lt;<span class="fn">input</span>
+      defaultValue=<span class="str">""</span>
+      onChange={(e) <span class="kw">=&gt;</span> onChange(e.target.value)}
+    /&gt;
+  );
+}</pre></div>
+
+        <div class="tradeoffs">
+          <div class="row head">
+            <div class="cell">优点</div>
+            <div class="cell">缺点</div>
+          </div>
+          <div class="row">
+            <div class="cell pro">leading / trailing / maxWait 都由库替我们处理</div>
+            <div class="cell con">增加需要审计和更新的运行时依赖</div>
+          </div>
+          <div class="row">
+            <div class="cell pro">回调形式会跳过中间重新渲染</div>
+            <div class="cell con">非受控输入偏离 Acme 表单模式</div>
+          </div>
+          <div class="row">
+            <div class="cell pro">边界情况测试充分（卸载、flush、cancel）</div>
+            <div class="cell con">为我们本可自维护的逻辑增加约 1.4 kb gzip</div>
+          </div>
+        </div>
+
+        <div class="chips">
+          <span class="chip">包体影响： <strong>+1.4 kb</strong></span>
+          <span class="chip">可测试性： <strong>高</strong></span>
+          <span class="chip">复用性： <strong>高</strong></span>
+          <span class="chip">SSR 安全： <strong>是</strong></span>
+        </div>
+      </article>
+
+    </section>
+
+    <!-- ============================================================= -->
+
+    <aside class="reco">
+      <h2>建议</h2>
+      <p>
+        Go with <strong>approach 02, the custom <code>useDebounce</code> hook</strong>。Acme 已经有三个地方手写了内联模式（任务筛选、命令面板、成员选择器），因此提取一个共享 Hook 可以去重，同时不引入新依赖。
+      </p>
+      <p>
+        只有当后续需要 <code>maxWait</code> or
+        <code>flush()</code> 语义时再重新考虑方案 03 — 当需求超过十行 Hook 能覆盖的范围后，这个库的包体成本才值得。
+      </p>
+    </aside>
+
+  </div>
+</body>
+</html>

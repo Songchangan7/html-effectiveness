@@ -1,0 +1,578 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>INC-2025-0412 — 任务同步 502 升高</title>
+<style>
+  :root {
+    --ivory: #FAF9F5;
+    --slate: #141413;
+    --clay: #D97757;
+    --oat: #E3DACC;
+    --olive: #788C5D;
+    --rust: #B04A3F;
+    --gray-100: #F0EEE6;
+    --gray-300: #D1CFC5;
+    --gray-500: #87867F;
+    --gray-700: #3D3D3A;
+    --white: #FFFFFF;
+
+    --serif: ui-serif, Georgia, serif;
+    --sans: system-ui, -apple-system, sans-serif;
+    --mono: ui-monospace, 'SF Mono', Menlo, monospace;
+
+    --radius-panel: 12px;
+    --radius-row: 8px;
+    --border: 1.5px solid var(--gray-300);
+  }
+
+  * { box-sizing: border-box; }
+
+  html { scroll-behavior: smooth; }
+
+  body {
+    margin: 0;
+    padding: 56px 24px 120px;
+    background: var(--ivory);
+    color: var(--slate);
+    font-family: var(--sans);
+    font-size: 15px;
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .page {
+    max-width: 820px;
+    margin: 0 auto;
+  }
+
+  /* ---------- Header ---------- */
+  header {
+    margin-bottom: 32px;
+  }
+  .inc-id {
+    font-family: var(--mono);
+    font-size: 13px;
+    color: var(--gray-500);
+    letter-spacing: 0.02em;
+    margin-bottom: 8px;
+  }
+  h1 {
+    font-family: var(--serif);
+    font-weight: 500;
+    font-size: 36px;
+    letter-spacing: -0.01em;
+    margin: 0 0 18px;
+    line-height: 1.2;
+  }
+  .meta-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 10px 12px;
+  }
+  .pill {
+    display: inline-flex;
+    align-items: baseline;
+    gap: 6px;
+    font-family: var(--sans);
+    font-size: 12px;
+    font-weight: 600;
+    border-radius: 999px;
+    padding: 5px 12px;
+    line-height: 1;
+  }
+  .pill .k {
+    font-weight: 400;
+    opacity: 0.75;
+  }
+  .pill.sev {
+    background: var(--clay);
+    color: var(--white);
+    letter-spacing: 0.03em;
+  }
+  .pill.resolved {
+    background: var(--olive);
+    color: var(--white);
+  }
+  .pill.neutral {
+    background: var(--gray-100);
+    color: var(--gray-700);
+    border: var(--border);
+  }
+  .pill.neutral .v {
+    font-family: var(--mono);
+  }
+
+  /* ---------- TL;DR ---------- */
+  .tldr {
+    background: var(--slate);
+    color: var(--ivory);
+    border-radius: var(--radius-panel);
+    padding: 22px 26px;
+    margin-bottom: 48px;
+  }
+  .tldr-label {
+    font-family: var(--mono);
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--oat);
+    margin-bottom: 10px;
+  }
+  .tldr p {
+    margin: 0;
+    font-size: 15.5px;
+    line-height: 1.65;
+  }
+  .tldr code {
+    font-family: var(--mono);
+    font-size: 13.5px;
+    background: rgba(250, 249, 245, 0.12);
+    padding: 1px 5px;
+    border-radius: 4px;
+  }
+
+  /* ---------- Sections ---------- */
+  section {
+    margin-bottom: 52px;
+    scroll-margin-top: 24px;
+  }
+  h2 {
+    font-family: var(--serif);
+    font-weight: 500;
+    font-size: 24px;
+    letter-spacing: -0.01em;
+    margin: 0 0 6px;
+  }
+  hr.rule {
+    border: none;
+    border-top: 1px solid var(--gray-300);
+    margin: 0 0 22px;
+  }
+  p { margin: 0 0 14px; }
+  code.inline {
+    font-family: var(--mono);
+    font-size: 13px;
+    background: var(--gray-100);
+    padding: 1.5px 5px;
+    border-radius: 4px;
+  }
+
+  /* ---------- Timeline ---------- */
+  .timeline {
+    position: relative;
+    padding: 4px 0 4px 16px;
+  }
+  .timeline::before {
+    content: "";
+    position: absolute;
+    left: 16px;
+    top: 8px;
+    bottom: 8px;
+    width: 2px;
+    background: var(--gray-300);
+  }
+  .tl-entry {
+    position: relative;
+    padding: 0 0 22px 28px;
+  }
+  .tl-entry:last-child {
+    padding-bottom: 0;
+  }
+  .tl-dot {
+    position: absolute;
+    left: -5px;
+    top: 6px;
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    background: var(--gray-500);
+    border: 2px solid var(--ivory);
+    box-sizing: content-box;
+  }
+  .tl-dot.impact { background: var(--clay); }
+  .tl-dot.mitigated { background: var(--olive); }
+  .tl-time {
+    display: inline-block;
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--gray-700);
+    background: var(--gray-100);
+    border: 1px solid var(--gray-300);
+    border-radius: 6px;
+    padding: 2px 8px;
+    margin-bottom: 6px;
+  }
+  .tl-body {
+    font-size: 14px;
+    color: var(--gray-700);
+  }
+  .tl-body strong {
+    color: var(--slate);
+    font-weight: 600;
+  }
+
+  /* ---------- Code diff ---------- */
+  .code-panel {
+    background: var(--slate);
+    color: var(--gray-100);
+    border-radius: var(--radius-panel);
+    padding: 18px 20px;
+    font-family: var(--mono);
+    font-size: 13px;
+    line-height: 1.7;
+    overflow-x: auto;
+    margin: 8px 0 4px;
+  }
+  .code-panel .path {
+    color: var(--gray-500);
+    font-size: 12px;
+    margin-bottom: 10px;
+    display: block;
+  }
+  .diff-line { white-space: pre; }
+  .diff-line.ctx { color: var(--gray-300); }
+  .diff-line.del { color: #E0897A; }
+  .diff-line.add { color: #A3B88A; }
+
+  /* ---------- Impact table ---------- */
+  table.impact {
+    width: 100%;
+    max-width: 460px;
+    border-collapse: separate;
+    border-spacing: 0;
+    background: var(--white);
+    border: var(--border);
+    border-radius: var(--radius-panel);
+    overflow: hidden;
+  }
+  table.impact th,
+  table.impact td {
+    text-align: left;
+    padding: 12px 18px;
+    font-size: 14px;
+    border-bottom: 1px solid var(--gray-100);
+  }
+  table.impact tr:last-child th,
+  table.impact tr:last-child td {
+    border-bottom: none;
+  }
+  table.impact th {
+    font-weight: 400;
+    color: var(--gray-500);
+    width: 55%;
+  }
+  table.impact td {
+    font-family: var(--mono);
+    color: var(--slate);
+  }
+
+  /* ---------- Action items ---------- */
+  .actions {
+    background: var(--white);
+    border: var(--border);
+    border-radius: var(--radius-panel);
+    overflow: hidden;
+  }
+  .ai-row {
+    display: grid;
+    grid-template-columns: 36px 36px 1fr 96px;
+    align-items: center;
+    gap: 14px;
+    padding: 14px 18px;
+    border-bottom: 1px solid var(--gray-100);
+  }
+  .ai-row:last-child { border-bottom: none; }
+  .ai-check {
+    width: 18px;
+    height: 18px;
+    border: 1.5px solid var(--gray-300);
+    border-radius: 5px;
+    background: var(--white);
+    position: relative;
+  }
+  .ai-row.done .ai-check {
+    background: var(--olive);
+    border-color: var(--olive);
+  }
+  .ai-row.done .ai-check::after {
+    content: "";
+    position: absolute;
+    left: 4px;
+    top: 1px;
+    width: 5px;
+    height: 9px;
+    border: solid var(--white);
+    border-width: 0 2px 2px 0;
+    transform: rotate(40deg);
+  }
+  .ai-row.done .ai-desc {
+    color: var(--gray-500);
+    text-decoration: line-through;
+    text-decoration-color: var(--gray-300);
+  }
+  .ai-avatar {
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    background: var(--oat);
+    color: var(--gray-700);
+    font-size: 11px;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    letter-spacing: 0.02em;
+  }
+  .ai-desc {
+    font-size: 14px;
+    color: var(--slate);
+  }
+  .ai-due {
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--gray-500);
+    text-align: right;
+  }
+
+  /* ---------- Fixed TOC ---------- */
+  .toc {
+    display: none;
+  }
+  @media (min-width: 1100px) {
+    .toc {
+      display: block;
+      position: fixed;
+      top: 72px;
+      right: max(24px, calc(50vw - 410px - 200px));
+      width: 170px;
+      font-size: 13px;
+    }
+    .toc-title {
+      font-family: var(--mono);
+      font-size: 10px;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      color: var(--gray-500);
+      margin-bottom: 12px;
+    }
+    .toc a {
+      display: block;
+      color: var(--gray-500);
+      text-decoration: none;
+      padding: 5px 0 5px 12px;
+      border-left: 1.5px solid var(--gray-300);
+      line-height: 1.3;
+    }
+    .toc a:hover {
+      color: var(--slate);
+      border-left-color: var(--clay);
+    }
+  }
+
+  footer {
+    margin-top: 64px;
+    padding-top: 20px;
+    border-top: 1px solid var(--gray-300);
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--gray-500);
+  }
+</style>
+</head>
+<body>
+
+  <nav class="toc">
+    <div class="toc-title">本页内容</div>
+    <a href="#tldr">摘要</a>
+    <a href="#timeline">时间线</a>
+    <a href="#root-cause">根因</a>
+    <a href="#impact">影响</a>
+    <a href="#actions">行动项</a>
+  </nav>
+
+  <div class="page">
+
+    <header>
+      <div class="inc-id">INC-2025-0412</div>
+      <h1>任务同步 502 升高</h1>
+      <div class="meta-row">
+        <span class="pill sev">SEV-2</span>
+        <span class="pill resolved">已解决</span>
+        <span class="pill neutral"><span class="k">持续时间</span> <span class="v">47 min</span></span>
+        <span class="pill neutral"><span class="k">发现时间</span> <span class="v">4 月 12 日 &middot; 14:07</span></span>
+        <span class="pill neutral"><span class="k">负责人</span> <span class="v">Devon Park</span></span>
+      </div>
+    </header>
+
+    <div class="tldr" id="tldr">
+      <div class="tldr-label">摘要</div>
+      <p>
+        一次配置发布将
+        <code>sync-worker</code> 层级的数据库连接池限制从 64 降到 8，导致正常下午负载下连接耗尽。同步 API 在 47 分钟内约 21% 请求返回 502。我们通过回滚配置并重启 worker 集群缓解；没有数据丢失。
+      </p>
+    </div>
+
+    <!-- Timeline -->
+    <section id="timeline">
+      <h2>时间线</h2>
+      <hr class="rule">
+      <div class="timeline">
+
+        <div class="tl-entry">
+          <span class="tl-dot"></span>
+          <span class="tl-time">14:02</span>
+          <div class="tl-body">
+            配置变更 <code class="inline">cfg-9a12</code> 通过标准发布流水线提升到生产。
+          </div>
+        </div>
+
+        <div class="tl-entry">
+          <span class="tl-dot impact"></span>
+          <span class="tl-time">14:06</span>
+          <div class="tl-body">
+            <strong>影响开始。</strong> 同步 worker 开始在连接池 checkout 上排队；p95 延迟超过 4 秒，负载均衡器开始返回 502。
+          </div>
+        </div>
+
+        <div class="tl-entry">
+          <span class="tl-dot"></span>
+          <span class="tl-time">14:07</span>
+          <div class="tl-body">
+            告警触发： <code class="inline">sync_5xx_rate &gt; 2%</code> 持续 60 秒。值班（Devon）确认。
+          </div>
+        </div>
+
+        <div class="tl-entry">
+          <span class="tl-dot"></span>
+          <span class="tl-time">14:18</span>
+          <div class="tl-body">
+            初始假设是 API 服务部署有问题；回滚最近两次应用部署后没有效果。
+          </div>
+        </div>
+
+        <div class="tl-entry">
+          <span class="tl-dot"></span>
+          <span class="tl-time">14:31</span>
+          <div class="tl-body">
+            Mira 加入并在 worker 仪表盘发现连接池等待饱和。调查从应用代码转向基础设施配置。
+          </div>
+        </div>
+
+        <div class="tl-entry">
+          <span class="tl-dot mitigated"></span>
+          <span class="tl-time">14:44</span>
+          <div class="tl-body">
+            <strong>已缓解。</strong> <code class="inline">cfg-9a12</code>
+            已回滚；worker 集群已重启。5xx 率在三分钟内降到 0.2% 以下。
+          </div>
+        </div>
+
+        <div class="tl-entry">
+          <span class="tl-dot"></span>
+          <span class="tl-time">14:49</span>
+          <div class="tl-body">
+            监控保持绿色 5 分钟。事故宣布解决；状态页已更新。
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- Root cause -->
+    <section id="root-cause">
+      <h2>根因</h2>
+      <hr class="rule">
+      <p>
+        PR <code class="inline">#4888</code> 让连接池限制可按 worker 层级配置。新的
+        <code class="inline">sync-worker</code> key 本应继承全局值（64），但在本地测试时被硬编码为 8 并提交。配置 linter 只验证类型，不验证数值范围，因此变更通过了 CI。
+      </p>
+      <p>
+        由于配置发布和代码部署走不同流水线，值班的第一反应 &mdash; 回滚最近的应用部署 &mdash; 没有效果，并消耗了约 13 分钟诊断时间。
+      </p>
+
+      <div class="code-panel">
+        <span class="path">infra/config/workers.yaml</span>
+<div class="diff-line ctx">   pool:</div>
+<div class="diff-line ctx">     global_max_connections: 64</div>
+<div class="diff-line ctx">     tiers:</div>
+<div class="diff-line del">-      sync-worker: { max_connections: 64 }</div>
+<div class="diff-line add">+      sync-worker: { max_connections: 8 }   # debug value, do not ship</div>
+<div class="diff-line ctx">       webhook-worker: { max_connections: 32 }</div>
+      </div>
+    </section>
+
+    <!-- Impact -->
+    <section id="impact">
+      <h2>影响</h2>
+      <hr class="rule">
+      <table class="impact">
+        <tr>
+          <th>失败请求（502）</th>
+          <td>~41,200</td>
+        </tr>
+        <tr>
+          <th>峰值错误率</th>
+          <td>21.4%</td>
+        </tr>
+        <tr>
+          <th>受影响用户</th>
+          <td>~2,300 workspaces</td>
+        </tr>
+        <tr>
+          <th>数据丢失</th>
+          <td>无 &mdash; 客户端已重试</td>
+        </tr>
+        <tr>
+          <th>SLA 违约</th>
+          <td>无（在月度预算内）</td>
+        </tr>
+      </table>
+    </section>
+
+    <!-- Action items -->
+    <section id="actions">
+      <h2>行动项</h2>
+      <hr class="rule">
+      <div class="actions">
+
+        <div class="ai-row done">
+          <span class="ai-check"></span>
+          <span class="ai-avatar" title="Devon Park">DP</span>
+          <span class="ai-desc">回滚 cfg-9a12 并将连接池限制恢复到 64</span>
+          <span class="ai-due">Apr 12</span>
+        </div>
+
+        <div class="ai-row">
+          <span class="ai-check"></span>
+          <span class="ai-avatar" title="Mira Okafor">MO</span>
+          <span class="ai-desc">Add config-linter range check for <code class="inline">max_connections</code> (warn &lt; 32)</span>
+          <span class="ai-due">Apr 18</span>
+        </div>
+
+        <div class="ai-row">
+          <span class="ai-check"></span>
+          <span class="ai-avatar" title="Sam Reyes">SR</span>
+          <span class="ai-desc">在值班仪表盘中与部署一起显示“最近配置发布”</span>
+          <span class="ai-due">Apr 25</span>
+        </div>
+
+        <div class="ai-row">
+          <span class="ai-check"></span>
+          <span class="ai-avatar" title="Priya Anand">PA</span>
+          <span class="ai-desc">全量提升前，先在一个 worker AZ 对配置变更金丝雀 10 分钟</span>
+          <span class="ai-due">May 02</span>
+        </div>
+
+      </div>
+    </section>
+
+    <footer>
+      根据值班笔记 + 告警历史撰写 &middot; Devon Park、Mira Okafor 已评审
+    </footer>
+
+  </div>
+</body>
+</html>
